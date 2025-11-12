@@ -11,6 +11,9 @@ export default function PhotoGallery({ initialPhotos }) {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const router = useRouter();
 
@@ -40,8 +43,8 @@ export default function PhotoGallery({ initialPhotos }) {
         throw new Error(errorData.error || "Falha no upload");
       }
 
-      setDescription("");
-      setFile(null);
+      closeUploadModal();
+      
       e.target.reset();
       
       router.refresh();
@@ -50,6 +53,66 @@ export default function PhotoGallery({ initialPhotos }) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selectedPhotoIndex === null) return;
+    const photoToDelete = initialPhotos[selectedPhotoIndex];
+    const photoId = photoToDelete.id;
+
+    if (!window.confirm(`Tem certeza que quer deletar a foto "${photoToDelete.description}"?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/photos/${photoId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao deletar");
+      }
+
+      closeModal();
+      router.refresh();
+
+    } catch (err) {
+      console.error(err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openUploadModal = () => setIsUploadModalOpen(true);
+
+  const closeUploadModal = () => {
+    setIsUploadModalOpen(false);
+    setDescription("");
+    setFile(null);
+    setError(null);
+    
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(null);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setFile(file);
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    if (file) {
+      setImagePreview(URL.createObjectURL(file));
+    } else {
+      setImagePreview(null);
     }
   };
 
@@ -83,53 +146,90 @@ export default function PhotoGallery({ initialPhotos }) {
 
   return (
     <div className="container mx-auto">
+      <div className="text-center mb-12">
+        <button
+          onClick={openUploadModal}
+          className="bg-blue-600 text-white py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300 font-semibold text-lg"
+        >
+          Adicionar Nova Foto
+        </button>
+      </div>
       
-      <div className="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md mb-12">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Nova Foto</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-gray-700 mb-2">
-              Descrição
-            </label>
-            <input
-              type="text"
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label htmlFor="image" className="block text-gray-700 mb-2">
-              Imagem
-            </label>
-            <input
-              type="file"
-              id="image"
-              accept="image/png, image/jpeg, image/gif"
-              onChange={(e) => setFile(e.target.files[0])}
-              className="w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              required
-            />
-          </div>
-          
-          <div>
-            <button 
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 disabled:bg-gray-400"
-              disabled={isLoading}
+      {isUploadModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm"
+          onClick={closeUploadModal}
+        >
+          <div 
+            className="relative w-full max-w-xl p-6 bg-white rounded-lg shadow-2xl mx-4"
+            onClick={stopPropagation}
+          >
+            <button
+              onClick={closeUploadModal}
+              className="absolute z-10 p-2 text-gray-600 rounded-full -top-3 -right-3 bg-white shadow-md hover:bg-gray-100 transition"
+              aria-label="Fechar"
             >
-              {isLoading ? "Enviando..." : "Salvar Foto"}
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
             
-            {error && (
-              <p className="text-red-500 text-center mt-4">{error}</p>
-            )}
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Nova Foto</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label htmlFor="description" className="block text-gray-700 mb-2">
+                  Descrição
+                </label>
+                <input
+                  type="text"
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="image" className="block text-gray-700 mb-2">
+                  Imagem
+                </label>
+                <input
+                  type="file"
+                  id="image"
+                  accept="image/png, image/jpeg, image/gif"
+                  onChange={handleFileChange}
+                  className="w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  required
+                />
+              </div>
+
+              {imagePreview && (
+                <div className="mb-4">
+                  <p className="block text-gray-700 mb-2">Preview:</p>
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview da imagem selecionada" 
+                    className="w-full max-h-48 object-cover rounded-md bg-gray-100 border"
+                  />
+                </div>
+              )}
+              
+              <div>
+                <button 
+                  type="submit"
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 disabled:bg-gray-400"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Enviando..." : "Salvar Foto"}
+                </button>
+                
+                {error && (
+                  <p className="text-red-500 text-center mt-4">{error}</p>
+                )}
+              </div>
+            </form>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
 
       <h1 className="text-4xl font-bold text-center text-gray-800 mb-12">
         Pequenos Instantes
@@ -186,6 +286,16 @@ export default function PhotoGallery({ initialPhotos }) {
               <p className="mt-4 text-lg text-center text-gray-700">
                 {selectedPhoto.description}
               </p>
+            </div>
+
+            <div className="text-center mt-4">
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 disabled:bg-gray-400"
+              >
+                {isDeleting ? "Deletando..." : "Deletar Foto"}
+              </button>
             </div>
 
             <button
