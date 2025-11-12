@@ -10,6 +10,7 @@ export default function PhotoGallery({ initialPhotos }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
   
   const router = useRouter();
 
@@ -51,6 +52,34 @@ export default function PhotoGallery({ initialPhotos }) {
       setIsLoading(false);
     }
   };
+
+  const openModal = (index) => {
+    setSelectedPhotoIndex(index);
+  };
+
+  const closeModal = () => {
+    setSelectedPhotoIndex(null);
+  };
+
+  const stopPropagation = (e) => e.stopPropagation();
+
+  const showNext = (e) => {
+    e.stopPropagation();
+    if (selectedPhotoIndex === null) return;
+    const nextIndex = (selectedPhotoIndex + 1) % initialPhotos.length;
+    setSelectedPhotoIndex(nextIndex);
+  };
+
+  const showPrev = (e) => {
+    e.stopPropagation();
+    if (selectedPhotoIndex === null) return;
+    const prevIndex = (selectedPhotoIndex - 1 + initialPhotos.length) % initialPhotos.length;
+    setSelectedPhotoIndex(prevIndex);
+  };
+
+  const selectedPhoto = selectedPhotoIndex !== null 
+    ? initialPhotos[selectedPhotoIndex] 
+    : null;
 
   return (
     <div className="container mx-auto">
@@ -108,9 +137,10 @@ export default function PhotoGallery({ initialPhotos }) {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {initialPhotos && initialPhotos.length > 0 ? (
-          initialPhotos.map((photo) => (
+          initialPhotos.map((photo, index) => (
             <div 
-              key={photo.id} 
+              key={photo.id}
+              onClick={() => openModal(index)}
               className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:scale-105"
             >
               <img 
@@ -129,6 +159,53 @@ export default function PhotoGallery({ initialPhotos }) {
           </p>
         )}
       </div>
+
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm"
+          onClick={closeModal}
+        >
+          <div
+            className="relative w-full max-w-3xl p-4 bg-white rounded-lg shadow-2xl mx-4"
+            onClick={stopPropagation}
+          >
+            <button
+              onClick={closeModal}
+              className="absolute z-10 p-2 text-white transition bg-gray-800 bg-opacity-50 rounded-full -top-3 -right-3 hover:bg-opacity-75"
+              aria-label="Fechar"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <div className="flex flex-col">
+              <img
+                src={`${BACKEND_URL}/uploads/${selectedPhoto.image_path}`}
+                alt={selectedPhoto.description}
+                className="object-contain w-full rounded-lg max-h-[75vh]"
+              />
+              <p className="mt-4 text-lg text-center text-gray-700">
+                {selectedPhoto.description}
+              </p>
+            </div>
+
+            <button
+              onClick={showPrev}
+              className="absolute left-0 p-3 transform -translate-x-1/2 bg-white rounded-full shadow-lg top-1/2 -translate-y-1/2 hover:bg-gray-200"
+              aria-label="Foto anterior"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+
+            <button
+              onClick={showNext}
+              className="absolute right-0 p-3 transform translate-x-1/2 bg-white rounded-full shadow-lg top-1/2 -translate-y-1/2 hover:bg-gray-200"
+              aria-label="Próxima foto"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
